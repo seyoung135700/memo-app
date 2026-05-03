@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>메모장</title>
+
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#0f0f13" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="메모장" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="심플하고 아름다운 메모 앱" />
+
+  <!-- PWA Manifest: injected via JS to avoid browser 400 errors with data: URLs -->
+  <link rel="manifest" id="manifest-placeholder" />
+
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.07);
+      --text: #e8e4dc;
+      --text-dim: rgba(232,228,220,0.45);
+      --text-faint: rgba(232,228,220,0.2);
+      --accent: #6EE7B7;
+      --accent-blue: #93C5FD;
+      --accent-yellow: #FCD34D;
+      --accent-red: #FCA5A5;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', 'Nanum Myeongjo', serif;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      max-width: 430px;
+      margin: 0 auto;
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Ambient glow */
+    .glow-tr {
+      position: fixed; top: -100px; right: -100px;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(110,231,183,0.07) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+    .glow-bl {
+      position: fixed; bottom: -80px; left: -80px;
+      width: 250px; height: 250px;
+      background: radial-gradient(circle, rgba(147,197,253,0.06) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* VIEWS */
+    .view { display: none; flex-direction: column; flex: 1; position: relative; z-index: 1; }
+    .view.active { display: flex; }
+
+    /* LIST VIEW */
+    .list-header {
+      padding: calc(var(--safe-top) + 36px) 24px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .list-header-top {
+      display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;
+    }
+    .header-label {
+      font-size: 11px; letter-spacing: 4px; color: var(--accent);
+      margin-bottom: 4px; text-transform: uppercase;
+    }
+    .header-title { font-size: 32px; font-weight: 400; font-style: italic; }
+    .btn-add {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: var(--accent); border: none; cursor: pointer;
+      font-size: 22px; color: var(--bg); display: flex;
+      align-items: center; justify-content: center; font-weight: 700;
+      flex-shrink: 0; transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-add:active { transform: scale(0.92); }
+
+    .search-wrap { position: relative; }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; opacity: 0.4; }
+    .search-input {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 10px 12px 10px 36px; color: var(--text);
+      font-size: 14px; outline: none; font-family: inherit;
+    }
+    .search-input::placeholder { color: var(--text-faint); }
+
+    .category-bar {
+      display: flex; gap: 8px; padding: 14px 24px;
+      overflow-x: auto; border-bottom: 1px solid var(--border);
+      scrollbar-width: none;
+    }
+    .category-bar::-webkit-scrollbar { display: none; }
+    .cat-btn {
+      padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.12);
+      background: transparent; color: rgba(255,255,255,0.5);
+      font-size: 12px; cursor: pointer; white-space: nowrap;
+      font-family: inherit; letter-spacing: 0.5px; transition: all 0.2s;
+    }
+    .cat-btn.active-all { border-color: var(--accent); background: rgba(110,231,183,0.12); color: var(--accent); }
+    .cat-btn.active-일상 { border-color: var(--accent); background: rgba(110,231,183,0.12); color: var(--accent); }
+    .cat-btn.active-업무 { border-color: var(--accent-blue); background: rgba(147,197,253,0.12); color: var(--accent-blue); }
+    .cat-btn.active-아이디어 { border-color: var(--accent-yellow); background: rgba(252,211,77,0.12); color: var(--accent-yellow); }
+    .cat-btn.active-중요 { border-color: var(--accent-red); background: rgba(252,165,165,0.12); color: var(--accent-red); }
+    .cat-btn.active-star { border-color: var(--accent-yellow); background: rgba(252,211,77,0.12); color: var(--accent-yellow); }
+
+    .memo-count { padding: 10px 24px 4px; font-size: 11px; color: var(--text-faint); letter-spacing: 1px; }
+
+    .memo-list { flex: 1; overflow-y: auto; padding: 8px 24px calc(var(--safe-bottom) + 20px); }
+    .empty-state { text-align: center; padding: 60px 0; color: var(--text-faint); font-size: 14px; }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+    .memo-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 16px 18px; margin-bottom: 10px;
+      cursor: pointer; transition: background 0.2s;
+      animation: fadeIn 0.3s ease both;
+    }
+    .memo-card:active { background: var(--surface-hover); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .card-left { flex: 1; min-width: 0; }
+    .cat-tag {
+      display: inline-block; font-size: 10px; padding: 2px 8px;
+      border-radius: 10px; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .tag-일상 { background: rgba(110,231,183,0.15); color: var(--accent); border: 1px solid rgba(110,231,183,0.3); }
+    .tag-업무 { background: rgba(147,197,253,0.15); color: var(--accent-blue); border: 1px solid rgba(147,197,253,0.3); }
+    .tag-아이디어 { background: rgba(252,211,77,0.15); color: var(--accent-yellow); border: 1px solid rgba(252,211,77,0.3); }
+    .tag-중요 { background: rgba(252,165,165,0.15); color: var(--accent-red); border: 1px solid rgba(252,165,165,0.3); }
+
+    .card-title {
+      font-size: 15px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .star-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; padding: 0 0 0 8px; flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .star-btn:active { transform: scale(1.3); }
+    .card-body {
+      font-size: 13px; color: var(--text-dim); line-height: 1.5;
+      overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .card-date { font-size: 11px; color: var(--text-faint); margin-top: 10px; text-align: right; }
+
+    /* EDIT VIEW */
+    .edit-header {
+      padding: calc(var(--safe-top) + 36px) 24px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .btn-back {
+      background: none; border: none; color: var(--accent);
+      font-size: 14px; cursor: pointer; font-family: inherit; letter-spacing: 0.5px;
+    }
+    .edit-actions { display: flex; gap: 12px; align-items: center; }
+    .btn-delete { background: none; border: none; color: rgba(252,165,165,0.7); font-size: 14px; cursor: pointer; font-family: inherit; }
+    .btn-save {
+      background: var(--accent); border: none; color: var(--bg);
+      padding: 8px 18px; border-radius: 20px; font-size: 13px;
+      cursor: pointer; font-family: inherit; font-weight: 700;
+      transition: transform 0.15s;
+    }
+    .btn-save:active { transform: scale(0.95); }
+
+    .edit-cats {
+      display: flex; gap: 8px; padding: 12px 24px;
+      overflow-x: auto; border-bottom: 1px solid var(--border);
+      scrollbar-width: none;
+    }
+    .edit-cats::-webkit-scrollbar { display: none; }
+    .edit-cat-btn {
+      padding: 5px 12px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: transparent; color: rgba(255,255,255,0.4);
+      font-size: 12px; cursor: pointer; white-space: nowrap; font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .edit-body { flex: 1; display: flex; flex-direction: column; padding: 20px 24px; gap: 12px; }
+    .title-input {
+      background: transparent; border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      color: var(--text); font-size: 22px; font-weight: 600;
+      padding: 8px 0; outline: none; font-family: inherit; font-style: italic; width: 100%;
+    }
+    .title-input::placeholder { color: var(--text-faint); }
+    .content-textarea {
+      flex: 1; background: transparent; border: none;
+      color: rgba(232,228,220,0.8); font-size: 15px; line-height: 1.8;
+      padding: 12px 0; outline: none; resize: none;
+      font-family: inherit; min-height: 300px;
+    }
+    .content-textarea::placeholder { color: var(--text-faint); }
+
+    /* INSTALL BANNER */
+    .install-banner {
+      position: fixed; bottom: calc(var(--safe-bottom) + 16px); left: 50%;
+      transform: translateX(-50%);
+      background: rgba(20,20,28,0.95); border: 1px solid var(--accent);
+      border-radius: 16px; padding: 14px 20px;
+      display: flex; align-items: center; gap: 12px;
+      max-width: 380px; width: calc(100% - 48px);
+      backdrop-filter: blur(20px); z-index: 100;
+      animation: slideUp 0.4s ease;
+    }
+    .install-text { flex: 1; font-size: 13px; line-height: 1.4; }
+    .install-text strong { color: var(--accent); }
+    .btn-install {
+      background: var(--accent); border: none; color: var(--bg);
+      padding: 8px 14px; border-radius: 10px; font-size: 12px;
+      cursor: pointer; font-weight: 700; white-space: nowrap; font-family: inherit;
+    }
+    .btn-install-close {
+      background: none; border: none; color: var(--text-faint);
+      font-size: 18px; cursor: pointer; padding: 0; line-height: 1;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="glow-tr"></div>
+  <div class="glow-bl"></div>
+
+  <!-- LIST VIEW -->
+  <div class="view active" id="view-list">
+    <div class="list-header">
+      <div class="list-header-top">
+        <div>
+          <div class="header-label">My Notes</div>
+          <h1 class="header-title">메모장</h1>
+        </div>
+        <button class="btn-add" onclick="openNew()">+</button>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-input" placeholder="검색..." oninput="renderList()" />
+      </div>
+    </div>
+
+    <div class="category-bar" id="category-bar"></div>
+
+    <div class="memo-count" id="memo-count"></div>
+    <div class="memo-list" id="memo-list"></div>
+  </div>
+
+  <!-- EDIT VIEW -->
+  <div class="view" id="view-edit">
+    <div class="edit-header">
+      <button class="btn-back" onclick="showList()">← 뒤로</button>
+      <div class="edit-actions">
+        <button class="btn-delete" id="btn-delete" onclick="deleteCurrent()" style="display:none">삭제</button>
+        <button class="btn-save" onclick="saveMemo()">저장</button>
+      </div>
+    </div>
+    <div class="edit-cats" id="edit-cats"></div>
+    <div class="edit-body">
+      <input class="title-input" id="edit-title" placeholder="제목" />
+      <textarea class="content-textarea" id="edit-content" placeholder="내용을 입력하세요..."></textarea>
+    </div>
+  </div>
+
+  <!-- INSTALL BANNER -->
+  <div class="install-banner" id="install-banner" style="display:none">
+    <div style="font-size:24px">📲</div>
+    <div class="install-text"><strong>홈 화면에 추가</strong>하면 앱처럼 사용할 수 있어요!</div>
+    <button class="btn-install" id="btn-install-action">설치</button>
+    <button class="btn-install-close" onclick="closeBanner()">×</button>
+  </div>
+</div>
+
+<script>
+  // ─── PWA Manifest via Blob (avoids browser 400 on data: URLs) ───────────────
+  (function() {
+    const manifest = {
+      name: "메모장", short_name: "메모", start_url: ".",
+      display: "standalone", background_color: "#0f0f13", theme_color: "#0f0f13",
+      icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect width='96' height='96' rx='20' fill='%230f0f13'/><text x='48' y='62' text-anchor='middle' font-size='52'>📝</text></svg>", sizes: "any", type: "image/svg+xml" }]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+    document.getElementById("manifest-placeholder").href = URL.createObjectURL(blob);
+  })();
+
+  // ─── Data ───────────────────────────────────────────────────────────────────
+  const CATS = ["전체", "일상", "업무", "아이디어", "중요"];
+  const CAT_COLORS = { 일상: "#6EE7B7", 업무: "#93C5FD", 아이디어: "#FCD34D", 중요: "#FCA5A5" };
+
+  let memos = JSON.parse(localStorage.getItem("memos") || "null") || [
+    { id: 1, title: "장보기 목록", content: "우유, 계란, 빵, 버터, 양파, 마늘", category: "일상", starred: false, createdAt: "2026-05-01" },
+    { id: 2, title: "프로젝트 아이디어", content: "AI 메모 앱 개발 → 음성 입력 지원 → 자동 분류 기능 추가", category: "아이디어", starred: true, createdAt: "2026-05-02" },
+    { id: 3, title: "회의 메모", content: "다음 주 화요일 3시 팀 미팅. 발표 자료 준비 필요. 참석자: 김팀장, 이과장, 박대리", category: "업무", starred: false, createdAt: "2026-05-03" },
+  ];
+  let nextId = Math.max(...memos.map(m => m.id), 0) + 1;
+  let activeCat = "전체";
+  let showStarred = false;
+  let editingId = null;
+  let editingCat = "일상";
+
+  function save() { localStorage.setItem("memos", JSON.stringify(memos)); }
+
+  // ─── List ────────────────────────────────────────────────────────────────────
+  function buildCategoryBar() {
+    const bar = document.getElementById("category-bar");
+    bar.innerHTML = "";
+    [...CATS].forEach(cat => {
+      const isActive = activeCat === cat && !showStarred;
+      const key = isActive ? (cat === "전체" ? "active-all" : `active-${cat}`) : "";
+      const b = document.createElement("button");
+      b.className = `cat-btn ${key}`;
+      b.textContent = cat;
+      b.onclick = () => { activeCat = cat; showStarred = false; renderList(); buildCategoryBar(); };
+      bar.appendChild(b);
+    });
+    const sb = document.createElement("button");
+    sb.className = `cat-btn ${showStarred ? "active-star" : ""}`;
+    sb.textContent = "⭐ 즐겨찾기";
+    sb.onclick = () => { showStarred = !showStarred; renderList(); buildCategoryBar(); };
+    bar.appendChild(sb);
+  }
+
+  function renderList() {
+    const q = document.getElementById("search-input").value;
+    const filtered = memos.filter(m => {
+      const matchCat = activeCat === "전체" || m.category === activeCat;
+      const matchSearch = m.title.includes(q) || m.content.includes(q);
+      const matchStar = showStarred ? m.starred : true;
+      return matchCat && matchSearch && matchStar;
+    });
+
+    document.getElementById("memo-count").textContent = `${filtered.length}개의 메모`;
+
+    const list = document.getElementById("memo-list");
+    if (filtered.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div>메모가 없어요</div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map((m, i) => `
+      <div class="memo-card" style="animation-delay:${i * 0.05}s" onclick="openEdit(${m.id})">
+        <div class="card-top">
+          <div class="card-left">
+            <span class="cat-tag tag-${m.category}">${m.category}</span>
+            <div class="card-title">${escHtml(m.title) || "제목 없음"}</div>
+          </div>
+          <button class="star-btn" onclick="toggleStar(event,${m.id})">${m.starred ? "⭐" : "☆"}</button>
+        </div>
+        <div class="card-body">${escHtml(m.content)}</div>
+        <div class="card-date">${fmtDate(m.createdAt)}</div>
+      </div>
+    `).join("");
+  }
+
+  function escHtml(s) { return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function fmtDate(d) { const dt = new Date(d); return `${dt.getMonth()+1}/${dt.getDate()}`; }
+
+  function toggleStar(e, id) {
+    e.stopPropagation();
+    memos = memos.map(m => m.id === id ? { ...m, starred: !m.starred } : m);
+    save(); renderList();
+  }
+
+  function showList() {
+    document.getElementById("view-edit").classList.remove("active");
+    document.getElementById("view-list").classList.add("active");
+    renderList(); buildCategoryBar();
+  }
+
+  // ─── Edit ────────────────────────────────────────────────────────────────────
+  function buildEditCats() {
+    const bar = document.getElementById("edit-cats");
+    bar.innerHTML = "";
+    CATS.filter(c => c !== "전체").forEach(cat => {
+      const color = CAT_COLORS[cat];
+      const isActive = editingCat === cat;
+      const b = document.createElement("button");
+      b.className = "edit-cat-btn";
+      b.textContent = cat;
+      if (isActive) {
+        b.style.borderColor = color;
+        b.style.background = `${color}18`;
+        b.style.color = color;
+      }
+      b.onclick = () => { editingCat = cat; buildEditCats(); };
+      bar.appendChild(b);
+    });
+  }
+
+  function openNew() {
+    editingId = null; editingCat = "일상";
+    document.getElementById("edit-title").value = "";
+    document.getElementById("edit-content").value = "";
+    document.getElementById("btn-delete").style.display = "none";
+    buildEditCats();
+    document.getElementById("view-list").classList.remove("active");
+    document.getElementById("view-edit").classList.add("active");
+    setTimeout(() => document.getElementById("edit-title").focus(), 100);
+  }
+
+  function openEdit(id) {
+    const m = memos.find(x => x.id === id);
+    if (!m) return;
+    editingId = id; editingCat = m.category;
+    document.getElementById("edit-title").value = m.title;
+    document.getElementById("edit-content").value = m.content;
+    document.getElementById("btn-delete").style.display = "inline";
+    buildEditCats();
+    document.getElementById("view-list").classList.remove("active");
+    document.getElementById("view-edit").classList.add("active");
+  }
+
+  function saveMemo() {
+    const title = document.getElementById("edit-title").value.trim();
+    const content = document.getElementById("edit-content").value.trim();
+    if (!title && !content) return;
+    if (editingId) {
+      memos = memos.map(m => m.id === editingId ? { ...m, title, content, category: editingCat } : m);
+    } else {
+      memos.push({ id: nextId++, title, content, category: editingCat, starred: false, createdAt: new Date().toISOString().slice(0,10) });
+    }
+    save(); showList();
+  }
+
+  function deleteCurrent() {
+    if (!editingId) return;
+    if (!confirm("이 메모를 삭제할까요?")) return;
+    memos = memos.filter(m => m.id !== editingId);
+    save(); showList();
+  }
+
+  // ─── PWA Install ─────────────────────────────────────────────────────────────
+  let deferredPrompt = null;
+
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!localStorage.getItem("install-dismissed")) {
+      document.getElementById("install-banner").style.display = "flex";
+    }
+  });
+
+  document.getElementById("btn-install-action").onclick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    } else {
+      // iOS instructions
+      alert("Safari에서 아래 공유 버튼(□↑)을 누른 후\n'홈 화면에 추가'를 선택하세요!");
+    }
+    closeBanner();
+  };
+
+  function closeBanner() {
+    document.getElementById("install-banner").style.display = "none";
+    localStorage.setItem("install-dismissed", "1");
+  }
+
+  // iOS: show banner manually since beforeinstallprompt doesn't fire
+  const isIos = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+  if (isIos && !isStandalone && !localStorage.getItem("install-dismissed")) {
+    setTimeout(() => {
+      document.getElementById("install-banner").style.display = "flex";
+    }, 2000);
+  }
+
+  // ─── Service Worker (inline via Blob) ────────────────────────────────────────
+  if ("serviceWorker" in navigator) {
+    const swCode = `
+      const CACHE = "memo-v1";
+      const ASSETS = [self.location.href];
+      self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS))));
+      self.addEventListener("fetch", e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+    `;
+    const blob = new Blob([swCode], { type: "application/javascript" });
+    const swUrl = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swUrl).catch(() => {});
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────────
+  buildCategoryBar();
+  renderList();
+</script>
+</body>
+</html>
