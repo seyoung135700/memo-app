@@ -13,6 +13,11 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="description" content="심플하고 아름다운 메모 앱" />
 
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+
   <!-- PWA Manifest: injected via JS to avoid browser 400 errors with data: URLs -->
   <link rel="manifest" id="manifest-placeholder" />
 
@@ -31,6 +36,7 @@
       --accent-red: #FCA5A5;
       --safe-top: env(safe-area-inset-top, 0px);
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --font-main: 'Nanum Myeongjo', Georgia, serif;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -38,14 +44,14 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Georgia', 'Nanum Myeongjo', serif;
+      font-family: var(--font-main);
       min-height: 100vh;
       min-height: -webkit-fill-available;
       overscroll-behavior: none;
     }
 
     #app {
-      max-width: 430px;
+      max-width: 100%;
       margin: 0 auto;
       min-height: 100vh;
       min-height: -webkit-fill-available;
@@ -54,6 +60,75 @@
       position: relative;
       overflow: hidden;
     }
+
+    /* ── 태블릿: 사이드바 + 메인 2컬럼 레이아웃 ── */
+    @media (min-width: 768px) {
+      #view-list {
+        flex-direction: row !important;
+      }
+      .list-sidebar {
+        width: 280px;
+        min-width: 280px;
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+      }
+      .list-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .memo-list {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+        gap: 12px !important;
+        padding: 16px 32px calc(var(--safe-bottom) + 32px) !important;
+        align-content: start;
+      }
+      .memo-card { margin-bottom: 0 !important; }
+      .memo-count { padding: 16px 32px 8px !important; }
+      .list-header { padding: calc(var(--safe-top) + 32px) 28px 16px !important; }
+      .category-bar { padding: 14px 28px !important; flex-wrap: wrap !important; }
+
+      /* 편집화면 태블릿 */
+      #view-edit { flex-direction: row !important; }
+      .edit-sidebar {
+        width: 280px; min-width: 280px;
+        border-right: 1px solid var(--border);
+        display: flex; flex-direction: column;
+        padding: calc(var(--safe-top) + 32px) 28px 24px;
+        gap: 16px;
+      }
+      .edit-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+      .edit-header { display: none !important; }
+      .edit-cats { display: none !important; }
+      .edit-body { padding: 32px 40px !important; }
+      .title-input { font-size: 28px !important; }
+      .content-textarea { font-size: 16px !important; }
+    }
+
+    /* 폰트 선택 버튼 */
+    .font-selector {
+      display: flex; gap: 6px; padding: 10px 24px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .font-label { font-size: 10px; color: var(--text-faint); letter-spacing: 1px; margin-right: 4px; }
+    .font-btn {
+      padding: 4px 12px; border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: transparent; color: rgba(255,255,255,0.4);
+      font-size: 12px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .font-btn.active { border-color: var(--accent); background: rgba(110,231,183,0.12); color: var(--accent); }
+    .font-btn.f-myeongjo { font-family: 'Nanum Myeongjo', serif; }
+    .font-btn.f-dodum { font-family: 'Gowun Dodum', sans-serif; }
+    .font-btn.f-default { font-family: Georgia, serif; }
 
     /* Ambient glow */
     .glow-tr {
@@ -238,6 +313,14 @@
       font-size: 18px; cursor: pointer; padding: 0; line-height: 1;
     }
 
+    /* 모바일에서 사이드바 숨김 */
+    @media (max-width: 767px) {
+      .list-sidebar { display: contents; }
+      .list-main { display: contents; }
+      .edit-sidebar { display: none; }
+      #view-list { flex-direction: column; }
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -259,39 +342,63 @@
 
   <!-- LIST VIEW -->
   <div class="view active" id="view-list">
-    <div class="list-header">
-      <div class="list-header-top">
-        <div>
-          <div class="header-label">My Notes</div>
-          <h1 class="header-title">메모장</h1>
+    <!-- 태블릿용 사이드바 -->
+    <div class="list-sidebar">
+      <div class="list-header">
+        <div class="list-header-top">
+          <div>
+            <div class="header-label">My Notes</div>
+            <h1 class="header-title">메모장</h1>
+          </div>
+          <button class="btn-add" onclick="openNew()">+</button>
         </div>
-        <button class="btn-add" onclick="openNew()">+</button>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="search-input" placeholder="검색..." oninput="renderList()" />
+        </div>
       </div>
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input class="search-input" id="search-input" placeholder="검색..." oninput="renderList()" />
+      <div class="category-bar" id="category-bar"></div>
+      <div class="font-selector">
+        <span class="font-label">폰트</span>
+        <button class="font-btn f-myeongjo active" onclick="setFont('myeongjo',this)">나눔명조</button>
+        <button class="font-btn f-dodum" onclick="setFont('dodum',this)">고운돋움</button>
+        <button class="font-btn f-default" onclick="setFont('default',this)">기본</button>
       </div>
     </div>
 
-    <div class="category-bar" id="category-bar"></div>
-
-    <div class="memo-count" id="memo-count"></div>
-    <div class="memo-list" id="memo-list"></div>
+    <!-- 메인 콘텐츠 (모바일에선 전체, 태블릿에선 우측) -->
+    <div class="list-main">
+      <div class="memo-count" id="memo-count"></div>
+      <div class="memo-list" id="memo-list"></div>
+    </div>
   </div>
 
   <!-- EDIT VIEW -->
   <div class="view" id="view-edit">
-    <div class="edit-header">
+    <!-- 태블릿용 편집 사이드바 -->
+    <div class="edit-sidebar">
       <button class="btn-back" onclick="showList()">← 뒤로</button>
-      <div class="edit-actions">
-        <button class="btn-delete" id="btn-delete" onclick="deleteCurrent()" style="display:none">삭제</button>
-        <button class="btn-save" onclick="saveMemo()">저장</button>
-      </div>
+      <div style="font-size:11px;color:var(--text-faint);letter-spacing:1px;margin-top:8px;">카테고리</div>
+      <div id="edit-cats-sidebar"></div>
+      <div style="flex:1"></div>
+      <button class="btn-delete" id="btn-delete-sidebar" onclick="deleteCurrent()" style="display:none;text-align:left;">🗑 메모 삭제</button>
+      <button class="btn-save" onclick="saveMemo()" style="width:100%;text-align:center;">저장</button>
     </div>
-    <div class="edit-cats" id="edit-cats"></div>
-    <div class="edit-body">
-      <input class="title-input" id="edit-title" placeholder="제목" />
-      <textarea class="content-textarea" id="edit-content" placeholder="내용을 입력하세요..."></textarea>
+
+    <!-- 모바일용 헤더 / 카테고리 (태블릿에서는 숨김) -->
+    <div class="edit-main">
+      <div class="edit-header">
+        <button class="btn-back" onclick="showList()">← 뒤로</button>
+        <div class="edit-actions">
+          <button class="btn-delete" id="btn-delete" onclick="deleteCurrent()" style="display:none">삭제</button>
+          <button class="btn-save" onclick="saveMemo()">저장</button>
+        </div>
+      </div>
+      <div class="edit-cats" id="edit-cats"></div>
+      <div class="edit-body">
+        <input class="title-input" id="edit-title" placeholder="제목" />
+        <textarea class="content-textarea" id="edit-content" placeholder="내용을 입력하세요..."></textarea>
+      </div>
     </div>
   </div>
 
@@ -305,7 +412,7 @@
 </div>
 
 <script>
-  // ─── PWA Manifest via Blob (avoids browser 400 on data: URLs) ───────────────
+  // ─── PWA Manifest via Blob ───────────────────────────────────────────────────
   (function() {
     const manifest = {
       name: "메모장", short_name: "메모", start_url: ".",
@@ -314,6 +421,30 @@
     };
     const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
     document.getElementById("manifest-placeholder").href = URL.createObjectURL(blob);
+  })();
+
+  // ─── Font switcher ───────────────────────────────────────────────────────────
+  const FONTS = {
+    myeongjo: "'Nanum Myeongjo', Georgia, serif",
+    dodum: "'Gowun Dodum', sans-serif",
+    default: "Georgia, serif",
+  };
+  function setFont(key, btn) {
+    document.documentElement.style.setProperty('--font-main', FONTS[key]);
+    document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    localStorage.setItem('font', key);
+  }
+  // 저장된 폰트 복원
+  (function() {
+    const saved = localStorage.getItem('font');
+    if (saved && FONTS[saved]) {
+      document.documentElement.style.setProperty('--font-main', FONTS[saved]);
+      document.querySelectorAll('.font-btn').forEach(b => {
+        if (b.getAttribute('onclick').includes(saved)) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+    }
   })();
 
   // ─── Data ───────────────────────────────────────────────────────────────────
@@ -402,21 +533,24 @@
 
   // ─── Edit ────────────────────────────────────────────────────────────────────
   function buildEditCats() {
-    const bar = document.getElementById("edit-cats");
-    bar.innerHTML = "";
-    CATS.filter(c => c !== "전체").forEach(cat => {
-      const color = CAT_COLORS[cat];
-      const isActive = editingCat === cat;
-      const b = document.createElement("button");
-      b.className = "edit-cat-btn";
-      b.textContent = cat;
-      if (isActive) {
-        b.style.borderColor = color;
-        b.style.background = `${color}18`;
-        b.style.color = color;
-      }
-      b.onclick = () => { editingCat = cat; buildEditCats(); };
-      bar.appendChild(b);
+    ['edit-cats', 'edit-cats-sidebar'].forEach(id => {
+      const bar = document.getElementById(id);
+      if (!bar) return;
+      bar.innerHTML = "";
+      CATS.filter(c => c !== "전체").forEach(cat => {
+        const color = CAT_COLORS[cat];
+        const isActive = editingCat === cat;
+        const b = document.createElement("button");
+        b.className = "edit-cat-btn";
+        b.textContent = cat;
+        if (isActive) {
+          b.style.borderColor = color;
+          b.style.background = `${color}18`;
+          b.style.color = color;
+        }
+        b.onclick = () => { editingCat = cat; buildEditCats(); };
+        bar.appendChild(b);
+      });
     });
   }
 
@@ -425,6 +559,7 @@
     document.getElementById("edit-title").value = "";
     document.getElementById("edit-content").value = "";
     document.getElementById("btn-delete").style.display = "none";
+    document.getElementById("btn-delete-sidebar").style.display = "none";
     buildEditCats();
     document.getElementById("view-list").classList.remove("active");
     document.getElementById("view-edit").classList.add("active");
@@ -438,6 +573,7 @@
     document.getElementById("edit-title").value = m.title;
     document.getElementById("edit-content").value = m.content;
     document.getElementById("btn-delete").style.display = "inline";
+    document.getElementById("btn-delete-sidebar").style.display = "inline";
     buildEditCats();
     document.getElementById("view-list").classList.remove("active");
     document.getElementById("view-edit").classList.add("active");
